@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
-    <!-- Подключаем частицы и эмодзи -->
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
     
@@ -16,21 +15,18 @@
         #chat-messages::-webkit-scrollbar { width: 4px; }
         #chat-messages::-webkit-scrollbar-thumb { background-color: #4B5563; border-radius: 4px; }
         input[type=range] { accent-color: #6366f1; }
-        body { position: fixed; width: 100%; height: 100%; }
+        body { position: fixed; width: 100%; height: 100%; overflow: hidden; }
         .fade-ui { transition: opacity 0.3s ease; }
         .hidden-ui { opacity: 0 !important; pointer-events: none; }
         
-        /* Фикс белого текста на белом фоне */
         #quality-selector option {
-            background-color: #1f2937; /* Темно-серый фон */
+            background-color: #1f2937;
             color: #ffffff;
         }
 
-        /* Анимация частиц на фоне меню */
         #particles-js { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
         .menu-content { position: relative; z-index: 10; }
         
-        /* Стили всплывающего окна эмодзи */
         emoji-picker {
             position: absolute; bottom: 60px; right: 10px; z-index: 50; display: none;
             --background: #1f2937; --border-color: #374151; --category-font-color: #9ca3af;
@@ -41,7 +37,7 @@
         .reaction-btn:hover { transform: scale(1.2); }
     </style>
 </head>
-<body class="bg-gray-900 text-white font-sans overflow-hidden" oncontextmenu="return false;"> 
+<body class="bg-gray-900 text-white font-sans" oncontextmenu="return false;"> 
 
     <div id="ctx-menu" class="hidden fixed bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-[200] py-1 text-sm">
         <button id="btn-kick" class="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 hover:text-red-300 font-bold">
@@ -52,11 +48,10 @@
     <div id="toast-error" class="hidden fixed top-5 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-[100] font-bold text-center w-11/12 max-w-md transition-all"></div>
 
     <!-- МЕНЮ -->
-    <div id="login-screen" class="w-full h-full flex flex-col items-center justify-center p-4 relative">
+    <div id="login-screen" class="w-full h-full flex flex-col items-center justify-center p-4 relative overflow-y-auto">
         <div id="particles-js"></div>
-        <div class="w-full max-w-4xl grid md:grid-cols-2 gap-6 menu-content">
+        <div class="w-full max-w-4xl grid md:grid-cols-2 gap-6 menu-content my-auto">
             
-            <!-- Создание лобби -->
             <div class="bg-gray-800/90 backdrop-blur p-8 rounded-2xl shadow-2xl border border-gray-700">
                 <h1 class="text-3xl font-bold mb-6 text-center text-indigo-400"><i class="fa-solid fa-popcorn mb-2 block text-4xl"></i>Co-Watch</h1>
                 <div class="mb-4">
@@ -70,7 +65,6 @@
                 </button>
             </div>
 
-            <!-- Список лобби -->
             <div class="bg-gray-800/90 backdrop-blur p-8 rounded-2xl shadow-2xl border border-gray-700 flex flex-col max-h-[450px]">
                 <h2 class="text-xl font-bold mb-4 text-emerald-400"><i class="fa-solid fa-list mr-2"></i>Доступные лобби</h2>
                 <div id="lobby-list" class="overflow-y-auto flex-grow space-y-2 pr-2">
@@ -108,7 +102,7 @@
                         <i class="fa-solid fa-camera md:mr-2"></i><span class="hidden md:inline">Камера</span>
                     </button>
                     <button id="btn-switch-cam" class="hidden bg-gray-600 hover:bg-gray-500 text-sm px-4 py-2 rounded-md font-bold transition shadow-lg" title="Сменить камеру">
-                        <i class="fa-solid fa-rotate-wrap"></i>
+                        <i class="fa-solid fa-rotate-right"></i>
                     </button>
                 </div>
             </div>
@@ -164,10 +158,9 @@
     </div>
 
     <script>
-        // Инициализация частиц на старте
         particlesJS("login-screen", {
             "particles": {
-                "number": { "value": 60 },
+                "number": { "value": 50 },
                 "color": { "value": "#6366f1" },
                 "shape": { "type": "circle" },
                 "opacity": { "value": 0.5, "random": true },
@@ -189,7 +182,7 @@
         let roomName = '';
         let isAdmin = false;
         let localStream = null;
-        let currentFacingMode = "user"; // Для переключения камеры
+        let currentFacingMode = "user";
         let lastMsgAuthor = null;
         let selectedLobbyToJoin = null;
         const peers = {};
@@ -240,6 +233,7 @@
                     if (!myName) return showError('Введите ваш никнейм!');
                     localStorage.setItem('savedNickname', myName);
                     selectedLobbyToJoin = lobby.name;
+                    roomName = lobby.name;
                     if (lobby.hasPassword) {
                         document.getElementById('password-modal').classList.remove('hidden');
                     } else {
@@ -283,7 +277,7 @@
             }
         });
 
-        // --- ТРАНСЛЯЦИЯ С ПЕРЕКЛЮЧАТЕЛЕМ КАМЕРЫ ---
+        // --- ТРАНСЛЯЦИЯ И КАМЕРА ---
         async function stopMyStream() {
             if (localStream) {
                 localStream.getTracks().forEach(t => t.stop());
@@ -305,7 +299,7 @@
                         video: { height: { ideal: idealHeight }, facingMode: currentFacingMode }, 
                         audio: true 
                     });
-                    btnSwitchCam.classList.remove('hidden'); // Показываем кнопку только для камеры
+                    btnSwitchCam.classList.remove('hidden');
                 }
 
                 videoPlayer.srcObject = localStream;
@@ -333,10 +327,9 @@
         document.getElementById('btn-share-screen').addEventListener('click', () => startStream('screen'));
         document.getElementById('btn-share-cam').addEventListener('click', () => startStream('camera'));
 
-        // Переворот камеры на телефонах
         btnSwitchCam.addEventListener('click', () => {
             currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-            startStream('camera'); // Перезапускаем поток с новой камерой
+            startStream('camera');
         });
 
         qualitySelector.addEventListener('change', async (e) => {
@@ -416,7 +409,7 @@
             const isGroup = lastMsgAuthor === data.user;
             const div = document.createElement('div');
             div.className = `chat-msg-block flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isGroup ? 'mt-1' : 'mt-4'}`;
-            div.dataset.id = data.msgId; // Уникальный ID для реакций
+            div.dataset.id = data.msgId;
             div.dataset.user = data.user;
 
             let nickHTML = !isGroup ? `<span class="text-[10px] mb-1 ${isMe ? 'text-indigo-400' : 'text-emerald-400'} font-bold uppercase">${data.user}</span>` : '';
@@ -428,9 +421,7 @@
                     <div class="msg-content px-3 py-2 max-w-[200px] md:max-w-[250px] break-words ${isMe ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} ${radiusClasses}">
                         <div>${data.text}</div>
                     </div>
-                    <!-- Блок реакций -->
                     <div class="reactions-container flex gap-1 mt-1 text-sm absolute ${isMe ? 'right-0' : 'left-0'}"></div>
-                    <!-- Кнопка добавить реакцию (появляется при наведении) -->
                     <div class="absolute ${isMe ? '-left-8' : '-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition">
                         <button onclick="sendReaction('${data.msgId}', '❤️')" class="reaction-btn bg-gray-800 rounded-full p-1 border border-gray-600 text-xs">❤️</button>
                     </div>
@@ -441,7 +432,6 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         });
 
-        // Отправка и получение реакций
         window.sendReaction = (msgId, emoji) => socket.emit('add-reaction', roomName, msgId, emoji);
 
         socket.on('update-reactions', (msgId, emoji, count) => {
@@ -469,7 +459,6 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // --- УПРАВЛЕНИЕ UI И ПОЛНЫЙ ЭКРАН ---
         let uiTimeout;
         const uiTop = document.getElementById('ui-top');
         function resetUiTimer() {
