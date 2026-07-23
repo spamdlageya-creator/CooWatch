@@ -8,36 +8,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
-    
     <style>
         #chat-messages::-webkit-scrollbar { width: 4px; }
         #chat-messages::-webkit-scrollbar-thumb { background-color: #4B5563; border-radius: 4px; }
         input[type=range] { accent-color: #6366f1; }
-        body { position: fixed; width: 100%; height: 100%; overflow: hidden; }
+        body { position: fixed; width: 100%; height: 100%; }
+        /* Класс для плавного скрытия интерфейса */
         .fade-ui { transition: opacity 0.3s ease; }
         .hidden-ui { opacity: 0 !important; pointer-events: none; }
-        
-        #quality-selector option {
-            background-color: #1f2937;
-            color: #ffffff;
-        }
-
-        #particles-js { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
-        .menu-content { position: relative; z-index: 10; }
-        
-        emoji-picker {
-            position: absolute; bottom: 60px; right: 10px; z-index: 50; display: none;
-            --background: #1f2937; --border-color: #374151; --category-font-color: #9ca3af;
-        }
-        emoji-picker.visible { display: block; }
-        
-        .reaction-btn { cursor: pointer; transition: transform 0.1s; }
-        .reaction-btn:hover { transform: scale(1.2); }
     </style>
 </head>
-<body class="bg-gray-900 text-white font-sans" oncontextmenu="return false;"> 
+<body class="bg-gray-900 text-white font-sans overflow-hidden" oncontextmenu="return false;"> 
 
     <div id="ctx-menu" class="hidden fixed bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-[200] py-1 text-sm">
         <button id="btn-kick" class="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 hover:text-red-300 font-bold">
@@ -47,48 +28,36 @@
 
     <div id="toast-error" class="hidden fixed top-5 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-[100] font-bold text-center w-11/12 max-w-md transition-all"></div>
 
-    <!-- МЕНЮ -->
-    <div id="login-screen" class="w-full h-full flex flex-col items-center justify-center p-4 relative overflow-y-auto">
-        <div id="particles-js"></div>
-        <div class="w-full max-w-4xl grid md:grid-cols-2 gap-6 menu-content my-auto">
+    <div id="login-screen" class="w-full h-full flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+            <h1 class="text-3xl font-bold mb-6 text-center text-indigo-400"><i class="fa-solid fa-popcorn mb-2 block text-4xl"></i>Co-Watch</h1>
             
-            <div class="bg-gray-800/90 backdrop-blur p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h1 class="text-3xl font-bold mb-6 text-center text-indigo-400"><i class="fa-solid fa-popcorn mb-2 block text-4xl"></i>Co-Watch</h1>
-                <div class="mb-4">
-                    <input type="text" id="nickname" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500 transition" placeholder="Ваш никнейм">
-                </div>
-                <div class="mb-4">
-                    <input type="password" id="room-password" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500 transition" placeholder="Пароль комнаты (необязательно)">
-                </div>
-                <button id="btn-create" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition mb-4 shadow-lg">
-                    <i class="fa-solid fa-tower-broadcast mr-2"></i> Создать трансляцию
-                </button>
+            <div class="mb-4">
+                <input type="text" id="nickname" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500 transition" placeholder="Ваш никнейм">
             </div>
 
-            <div class="bg-gray-800/90 backdrop-blur p-8 rounded-2xl shadow-2xl border border-gray-700 flex flex-col max-h-[450px]">
-                <h2 class="text-xl font-bold mb-4 text-emerald-400"><i class="fa-solid fa-list mr-2"></i>Доступные лобби</h2>
-                <div id="lobby-list" class="overflow-y-auto flex-grow space-y-2 pr-2">
-                    <div class="text-gray-400 text-center mt-10">Нет активных комнат</div>
-                </div>
+            <button id="btn-create" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition mb-4 shadow-lg">
+                <i class="fa-solid fa-tower-broadcast mr-2"></i> Создать трансляцию
+            </button>
+
+            <div class="relative flex py-3 items-center">
+                <div class="flex-grow border-t border-gray-700"></div>
+                <span class="flex-shrink-0 mx-4 text-gray-500 text-sm font-medium">ИЛИ</span>
+                <div class="flex-grow border-t border-gray-700"></div>
             </div>
 
+            <div class="mb-4 mt-2">
+                <input type="text" id="admin-nickname" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-green-500 transition" placeholder="Никнейм админа">
+            </div>
+
+            <button id="btn-join" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-lg">
+                <i class="fa-solid fa-right-to-bracket mr-2"></i> Присоединиться
+            </button>
         </div>
     </div>
 
-    <!-- МОДАЛКА ПАРОЛЯ -->
-    <div id="password-modal" class="hidden fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4">
-        <div class="bg-gray-800 p-6 rounded-xl border border-gray-600 w-full max-w-sm">
-            <h3 class="text-lg font-bold mb-4">Требуется пароль</h3>
-            <input type="password" id="join-password" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg mb-4" placeholder="Введите пароль">
-            <div class="flex gap-2">
-                <button id="btn-cancel-join" class="flex-1 bg-gray-700 hover:bg-gray-600 py-2 rounded-lg font-bold">Отмена</button>
-                <button id="btn-confirm-join" class="flex-1 bg-emerald-600 hover:bg-emerald-500 py-2 rounded-lg font-bold">Войти</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- КОМНАТА -->
-    <div id="room-screen" class="hidden w-full h-full flex flex-col md:flex-row relative">
+    <div id="room-screen" class="hidden w-full h-full flex flex-col md:flex-row">
+        
         <div id="video-container" class="relative flex-grow bg-black flex flex-col h-[50vh] md:h-full group">
             
             <div id="ui-top" class="fade-ui absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-10 flex justify-between items-center opacity-100 md:opacity-0 md:group-hover:opacity-100">
@@ -101,9 +70,6 @@
                     <button id="btn-share-cam" class="bg-indigo-600 hover:bg-indigo-500 text-sm px-4 py-2 rounded-md font-bold transition shadow-lg" title="Транслировать камеру">
                         <i class="fa-solid fa-camera md:mr-2"></i><span class="hidden md:inline">Камера</span>
                     </button>
-                    <button id="btn-switch-cam" class="hidden bg-gray-600 hover:bg-gray-500 text-sm px-4 py-2 rounded-md font-bold transition shadow-lg" title="Сменить камеру">
-                        <i class="fa-solid fa-rotate-right"></i>
-                    </button>
                 </div>
             </div>
             
@@ -115,6 +81,7 @@
             </div>
 
             <div id="video-controls" class="fade-ui hidden absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/90 to-transparent z-10 flex items-center justify-end gap-3 opacity-100 md:opacity-0 md:group-hover:opacity-100">
+                
                 <div id="quality-control" class="hidden flex items-center gap-2 bg-gray-800/80 backdrop-blur px-2 py-1.5 rounded border border-gray-600">
                     <i class="fa-solid fa-gear text-sm text-gray-300"></i>
                     <select id="quality-selector" class="bg-transparent text-xs text-white outline-none cursor-pointer">
@@ -124,17 +91,19 @@
                         <option value="360">360p</option>
                     </select>
                 </div>
+
                 <div id="volume-control" class="flex items-center gap-2 bg-gray-800/80 backdrop-blur px-3 py-1.5 rounded-full border border-gray-600">
                     <i class="fa-solid fa-volume-high text-sm text-gray-300"></i>
                     <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" class="w-20 md:w-24 cursor-pointer">
                 </div>
+                
                 <button id="btn-fullscreen" class="bg-gray-800/80 hover:bg-gray-700 backdrop-blur p-2.5 rounded-full border border-gray-600 transition text-gray-200">
                     <i class="fa-solid fa-expand"></i>
                 </button>
             </div>
         </div>
 
-        <div class="w-full h-[50vh] md:h-full md:w-80 lg:w-96 bg-gray-800 flex flex-col border-t md:border-t-0 md:border-l border-gray-700 relative">
+        <div class="w-full h-[50vh] md:h-full md:w-80 lg:w-96 bg-gray-800 flex flex-col border-t md:border-t-0 md:border-l border-gray-700">
             <div class="p-3 bg-gray-900 border-b border-gray-700 flex items-center gap-2 shrink-0">
                 <i class="fa-regular fa-comments text-indigo-400"></i>
                 <span class="font-bold text-sm">Чат</span>
@@ -142,12 +111,8 @@
             
             <div id="chat-messages" class="flex-grow p-4 overflow-y-auto flex flex-col pb-20 md:pb-4 relative"></div>
 
-            <div class="p-3 bg-gray-900 border-t border-gray-700 shrink-0 relative">
-                <emoji-picker id="emoji-picker"></emoji-picker>
+            <div class="p-3 bg-gray-900 border-t border-gray-700 shrink-0">
                 <form id="chat-form" class="flex gap-2 relative">
-                    <button type="button" id="btn-emoji-toggle" class="text-gray-400 hover:text-yellow-400 transition p-2">
-                        <i class="fa-regular fa-face-smile text-lg"></i>
-                    </button>
                     <input type="text" id="chat-input" class="flex-grow p-2.5 bg-gray-800 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-indigo-500 transition pr-10" placeholder="Написать..." autocomplete="off">
                     <button type="submit" class="absolute right-1 top-1 bottom-1 text-indigo-400 hover:text-indigo-300 p-2 rounded transition">
                         <i class="fa-solid fa-paper-plane"></i>
@@ -158,23 +123,6 @@
     </div>
 
     <script>
-        particlesJS("login-screen", {
-            "particles": {
-                "number": { "value": 50 },
-                "color": { "value": "#6366f1" },
-                "shape": { "type": "circle" },
-                "opacity": { "value": 0.5, "random": true },
-                "size": { "value": 3, "random": true },
-                "line_linked": { "enable": true, "distance": 150, "color": "#6366f1", "opacity": 0.4, "width": 1 },
-                "move": { "enable": true, "speed": 2, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false }
-            },
-            "interactivity": {
-                "detect_on": "canvas",
-                "events": { "onhover": { "enable": true, "mode": "repulse" }, "onclick": { "enable": true, "mode": "push" }, "resize": true }
-            },
-            "retina_detect": true
-        });
-
         const socket = io();
         let myName = localStorage.getItem('savedNickname') || '';
         if (myName) document.getElementById('nickname').value = myName;
@@ -182,13 +130,14 @@
         let roomName = '';
         let isAdmin = false;
         let localStream = null;
-        let currentFacingMode = "user";
         let lastMsgAuthor = null;
-        let selectedLobbyToJoin = null;
         const peers = {};
 
         const webRtcConfig = {
-            iceServers: [ { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' } ]
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
         };
 
         const loginScreen = document.getElementById('login-screen');
@@ -196,88 +145,74 @@
         const videoPlayer = document.getElementById('video-player');
         const chatMessages = document.getElementById('chat-messages');
         const uiBot = document.getElementById('video-controls');
+        const qualityControl = document.getElementById('quality-control');
         const qualitySelector = document.getElementById('quality-selector');
-        const btnSwitchCam = document.getElementById('btn-switch-cam');
 
+        // --- УВЕДОМЛЕНИЯ ---
         function showError(msg) {
             const toast = document.getElementById('toast-error');
             toast.innerText = msg; toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 5000);
         }
-
         socket.on('error-msg', (msg) => {
             showError(msg);
             if(msg.includes('завершил') || msg.includes('не существует')) setTimeout(() => window.location.reload(), 3000);
         });
-
-        // --- ЛОББИ ---
-        socket.on('update-lobbies', (lobbies) => {
-            const list = document.getElementById('lobby-list');
-            list.innerHTML = '';
-            if (lobbies.length === 0) {
-                list.innerHTML = '<div class="text-gray-400 text-center mt-10">Нет активных комнат</div>';
-                return;
-            }
-            lobbies.forEach(lobby => {
-                const div = document.createElement('div');
-                div.className = "bg-gray-700/50 hover:bg-gray-700 p-3 rounded-lg flex justify-between items-center cursor-pointer transition border border-gray-600 hover:border-indigo-500";
-                div.innerHTML = `
-                    <div>
-                        <div class="font-bold text-indigo-300">${lobby.name}</div>
-                        <div class="text-xs text-gray-400"><i class="fa-solid fa-users text-[10px]"></i> ${lobby.viewers} зрителей</div>
-                    </div>
-                    ${lobby.hasPassword ? '<i class="fa-solid fa-lock text-red-400"></i>' : '<i class="fa-solid fa-lock-open text-emerald-400"></i>'}
-                `;
-                div.onclick = () => {
-                    myName = document.getElementById('nickname').value.trim();
-                    if (!myName) return showError('Введите ваш никнейм!');
-                    localStorage.setItem('savedNickname', myName);
-                    selectedLobbyToJoin = lobby.name;
-                    roomName = lobby.name;
-                    if (lobby.hasPassword) {
-                        document.getElementById('password-modal').classList.remove('hidden');
-                    } else {
-                        socket.emit('join-room', lobby.name, myName, '');
-                    }
-                };
-                list.appendChild(div);
-            });
+        socket.on('kicked-notice', () => {
+            alert('Вас выгнали из комнаты.');
+            window.location.reload();
         });
 
-        document.getElementById('btn-cancel-join').onclick = () => {
-            document.getElementById('password-modal').classList.add('hidden');
-            document.getElementById('join-password').value = '';
-        };
+        // --- MOBILE UI AUTO-HIDE ---
+        let uiTimeout;
+        const uiTop = document.getElementById('ui-top');
+        
+        function resetUiTimer() {
+            uiTop.classList.remove('hidden-ui');
+            uiBot.classList.remove('hidden-ui');
+            clearTimeout(uiTimeout);
+            if (window.innerWidth < 768 || document.fullscreenElement) {
+                uiTimeout = setTimeout(() => {
+                    uiTop.classList.add('hidden-ui');
+                    uiBot.classList.add('hidden-ui');
+                }, 3000);
+            }
+        }
+        document.getElementById('video-container').addEventListener('mousemove', resetUiTimer);
+        document.getElementById('video-container').addEventListener('touchstart', resetUiTimer);
 
-        document.getElementById('btn-confirm-join').onclick = () => {
-            const pass = document.getElementById('join-password').value;
-            socket.emit('join-room', selectedLobbyToJoin, myName, pass);
-            document.getElementById('password-modal').classList.add('hidden');
-            document.getElementById('join-password').value = '';
-        };
-
+        // --- ВХОД ---
         document.getElementById('btn-create').addEventListener('click', () => {
             myName = document.getElementById('nickname').value.trim();
-            const pass = document.getElementById('room-password').value;
             if (!myName) return showError('Введите ваш ник!');
             localStorage.setItem('savedNickname', myName); 
             isAdmin = true; roomName = myName;
-            socket.emit('create-room', roomName, pass);
+            socket.emit('create-room', roomName);
+        });
+
+        document.getElementById('btn-join').addEventListener('click', () => {
+            myName = document.getElementById('nickname').value.trim();
+            roomName = document.getElementById('admin-nickname').value.trim();
+            if (!myName || !roomName) return showError('Заполните поля!');
+            localStorage.setItem('savedNickname', myName); 
+            isAdmin = false;
+            socket.emit('join-room', roomName, myName);
         });
 
         socket.on('room-ready', (isCreator) => {
             loginScreen.classList.add('hidden');
             roomScreen.classList.remove('hidden');
-            document.getElementById('room-info').innerHTML = `<i class="fa-solid fa-users mr-2 text-indigo-400"></i> Лобби: ${roomName}`;
+            document.getElementById('room-info').innerHTML = `<i class="fa-solid fa-users mr-2 text-indigo-400"></i> ${roomName}`;
             if (isCreator) {
                 document.getElementById('share-controls').classList.remove('hidden');
-                document.getElementById('volume-control').classList.add('hidden'); 
-                document.getElementById('quality-control').classList.remove('hidden');
+                document.getElementById('volume-control').classList.add('hidden'); // Админу не нужна своя громкость
+                qualityControl.classList.remove('hidden'); // Показываем выбор качества админу
                 videoPlayer.muted = true;
             }
+            resetUiTimer();
         });
 
-        // --- ТРАНСЛЯЦИЯ И КАМЕРА ---
+        // --- ТРАНСЛЯЦИЯ ---
         async function stopMyStream() {
             if (localStream) {
                 localStream.getTracks().forEach(t => t.stop());
@@ -286,26 +221,31 @@
             }
         }
 
+        // Общая функция старта стрима (камера или экран)
         async function startStream(type) {
             try {
                 if (localStream) await stopMyStream(); 
+                
                 const idealHeight = parseInt(qualitySelector.value);
 
                 if (type === 'screen') {
-                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: { height: { ideal: idealHeight } }, audio: true });
-                    btnSwitchCam.classList.add('hidden');
-                } else if (type === 'camera') {
-                    localStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { height: { ideal: idealHeight }, facingMode: currentFacingMode }, 
+                    localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                        video: { height: { ideal: idealHeight } }, 
                         audio: true 
                     });
-                    btnSwitchCam.classList.remove('hidden');
+                } else if (type === 'camera') {
+                    localStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { height: { ideal: idealHeight } }, 
+                        audio: true 
+                    });
                 }
 
                 videoPlayer.srcObject = localStream;
                 document.getElementById('waiting-text').classList.add('hidden');
+                document.getElementById('share-controls').classList.add('hidden');
                 uiBot.classList.remove('hidden');
 
+                // Обновляем треки у зрителей на лету
                 Object.keys(peers).forEach(id => {
                     if (peers[id] && !peers[id].destroyed) {
                         try { peers[id].replaceTrack(peers[id].streams[0].getVideoTracks()[0], localStream.getVideoTracks()[0], peers[id].streams[0]); } catch(e){}
@@ -314,32 +254,31 @@
 
                 localStream.getVideoTracks()[0].onended = () => {
                     stopMyStream();
+                    document.getElementById('share-controls').classList.remove('hidden');
                     uiBot.classList.add('hidden');
-                    btnSwitchCam.classList.add('hidden');
                     document.getElementById('waiting-text').classList.remove('hidden');
                     videoPlayer.srcObject = null;
                 };
             } catch (err) {
                 showError('Ошибка доступа к медиа');
+                console.error(err);
             }
         }
 
         document.getElementById('btn-share-screen').addEventListener('click', () => startStream('screen'));
         document.getElementById('btn-share-cam').addEventListener('click', () => startStream('camera'));
 
-        btnSwitchCam.addEventListener('click', () => {
-            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-            startStream('camera');
-        });
-
+        // Смена качества на лету
         qualitySelector.addEventListener('change', async (e) => {
             if (localStream && isAdmin) {
                 const height = parseInt(e.target.value);
                 const track = localStream.getVideoTracks()[0];
                 try {
                     await track.applyConstraints({ height: { ideal: height } });
-                    addSystemMessage(`Качество изменено на ${height}p`, 'text-blue-400');
-                } catch (err) { showError('Смена качества не поддерживается устройством'); }
+                    addSystemMessage(`Качество трансляции изменено на ${height}p`, 'text-blue-400');
+                } catch (err) {
+                    showError('Браузер не поддерживает смену качества на лету');
+                }
             }
         });
 
@@ -349,15 +288,25 @@
             uiBot.classList.add('hidden');
         });
 
-        // WEBRTC
+        // Управление UI видео
+        document.getElementById('volume-slider').addEventListener('input', (e) => videoPlayer.volume = e.target.value);
+        document.getElementById('btn-fullscreen').addEventListener('click', () => {
+            const vc = document.getElementById('video-container');
+            if (!document.fullscreenElement) vc.requestFullscreen().catch(e => {});
+            else document.exitFullscreen();
+        });
+
+        // --- WEBRTC ---
         socket.on('user-joined', (userId, userName) => {
-            addSystemMessage(`${userName} зашел`);
+            addSystemMessage(`${userName} присоединился к просмотру`);
             if (isAdmin && localStream) {
                 const peer = new SimplePeer({ initiator: true, stream: localStream, trickle: true, config: webRtcConfig });
                 peer.on('signal', signalData => socket.emit('signal', userId, signalData));
                 peers[userId] = peer;
             }
         });
+
+        socket.on('user-left', (userName) => addSystemMessage(`${userName} покинул трансляцию`, 'text-red-400'));
 
         let peerForViewer = null;
         socket.on('signal', (fromId, signalData) => {
@@ -371,87 +320,58 @@
                         videoPlayer.srcObject = stream;
                         document.getElementById('waiting-text').classList.add('hidden');
                         uiBot.classList.remove('hidden');
-                        videoPlayer.play().catch(e => addSystemMessage("Нажмите на видео для звука", "text-yellow-400"));
+                        videoPlayer.play().catch(e => addSystemMessage("Нажмите на видео, чтобы включить звук", "text-yellow-400"));
                     });
                 }
                 peerForViewer.signal(signalData);
             }
         });
 
-        // --- ЧАТ & ЭМОДЗИ & РЕАКЦИИ ---
-        const emojiPicker = document.querySelector('emoji-picker');
-        const btnEmojiToggle = document.getElementById('btn-emoji-toggle');
-        const chatInput = document.getElementById('chat-input');
-
-        btnEmojiToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            emojiPicker.classList.toggle('visible');
-        });
-        document.addEventListener('click', (e) => {
-            if (!emojiPicker.contains(e.target) && e.target !== btnEmojiToggle) emojiPicker.classList.remove('visible');
-        });
-        emojiPicker.addEventListener('emoji-click', event => {
-            chatInput.value += event.detail.unicode;
-            chatInput.focus();
-        });
-
+        // --- ЧАТ (Группировка с отступами) ---
         document.getElementById('chat-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            if (chatInput.value.trim()) {
-                socket.emit('chat-message', roomName, myName, chatInput.value.trim());
-                chatInput.value = '';
-                emojiPicker.classList.remove('visible');
+            const input = document.getElementById('chat-input');
+            if (input.value.trim()) {
+                socket.emit('chat-message', roomName, myName, input.value.trim());
+                input.value = '';
             }
         });
 
         socket.on('chat-message', (data) => {
             const isMe = data.user === myName;
             const isGroup = lastMsgAuthor === data.user;
+            
             const div = document.createElement('div');
+            // Если сообщение в группе (от того же человека подряд) — отступ 2px (mt-0.5), иначе большой отступ (mt-3)
             div.className = `chat-msg-block flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isGroup ? 'mt-1' : 'mt-4'}`;
-            div.dataset.id = data.msgId;
+            div.dataset.id = data.id;
             div.dataset.user = data.user;
 
-            let nickHTML = !isGroup ? `<span class="text-[10px] mb-1 ${isMe ? 'text-indigo-400' : 'text-emerald-400'} font-bold uppercase">${data.user}</span>` : '';
-            const radiusClasses = isMe ? (isGroup ? 'rounded-l-lg rounded-r-md' : 'rounded-lg rounded-br-none') : (isGroup ? 'rounded-r-lg rounded-l-md' : 'rounded-lg rounded-bl-none');
+            let nickHTML = '';
+            // Ник показываем только если это первое сообщение в группе
+            if (!isGroup) {
+                nickHTML = `<span class="text-[10px] mb-1 ${isMe ? 'text-indigo-400' : 'text-emerald-400'} font-bold uppercase">${data.user}</span>`;
+            }
+
+            // Радиусы тоже меняем: чтобы был красивый пузырьковый эффект
+            const radiusClasses = isMe 
+                ? (isGroup ? 'rounded-l-lg rounded-r-md' : 'rounded-lg rounded-br-none') 
+                : (isGroup ? 'rounded-r-lg rounded-l-md' : 'rounded-lg rounded-bl-none');
 
             div.innerHTML = `
                 ${nickHTML}
-                <div class="relative group">
-                    <div class="msg-content px-3 py-2 max-w-[200px] md:max-w-[250px] break-words ${isMe ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} ${radiusClasses}">
-                        <div>${data.text}</div>
-                    </div>
-                    <div class="reactions-container flex gap-1 mt-1 text-sm absolute ${isMe ? 'right-0' : 'left-0'}"></div>
-                    <div class="absolute ${isMe ? '-left-8' : '-right-8'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition">
-                        <button onclick="sendReaction('${data.msgId}', '❤️')" class="reaction-btn bg-gray-800 rounded-full p-1 border border-gray-600 text-xs">❤️</button>
-                    </div>
+                <div class="msg-content px-3 py-2 max-w-[90%] break-words ${isMe ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'} ${radiusClasses}">
+                    <div>${data.text}</div>
                 </div>
             `;
             chatMessages.appendChild(div);
+            
             lastMsgAuthor = data.user;
             chatMessages.scrollTop = chatMessages.scrollHeight;
         });
 
-        window.sendReaction = (msgId, emoji) => socket.emit('add-reaction', roomName, msgId, emoji);
-
-        socket.on('update-reactions', (msgId, emoji, count) => {
-            const msgBlock = document.querySelector(`.chat-msg-block[data-id="${msgId}"] .reactions-container`);
-            if (msgBlock) {
-                let existing = Array.from(msgBlock.children).find(el => el.dataset.emoji === emoji);
-                if (existing) {
-                    existing.innerHTML = `${emoji} <span class="text-[10px]">${count}</span>`;
-                } else {
-                    const reactDiv = document.createElement('div');
-                    reactDiv.dataset.emoji = emoji;
-                    reactDiv.className = "bg-gray-800 border border-gray-600 rounded-full px-1.5 py-0.5 text-[10px] flex items-center gap-1 cursor-default";
-                    reactDiv.innerHTML = `${emoji} <span class="text-[10px]">${count}</span>`;
-                    msgBlock.appendChild(reactDiv);
-                }
-            }
-        });
-
         function addSystemMessage(text, colorClass = 'text-gray-400') {
-            lastMsgAuthor = null; 
+            lastMsgAuthor = null; // Сбрасываем группировку
             const div = document.createElement('div');
             div.className = "flex justify-center mt-3";
             div.innerHTML = `<span class="bg-gray-700/50 ${colorClass} text-[10px] px-3 py-1 rounded-full text-center uppercase font-bold">${text}</span>`;
@@ -459,25 +379,40 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        let uiTimeout;
-        const uiTop = document.getElementById('ui-top');
-        function resetUiTimer() {
-            uiTop.classList.remove('hidden-ui');
-            uiBot.classList.remove('hidden-ui');
-            clearTimeout(uiTimeout);
-            if (window.innerWidth < 768 || document.fullscreenElement) {
-                uiTimeout = setTimeout(() => { uiTop.classList.add('hidden-ui'); uiBot.classList.add('hidden-ui'); }, 3000);
-            }
-        }
-        document.getElementById('video-container').addEventListener('mousemove', resetUiTimer);
-        document.getElementById('video-container').addEventListener('touchstart', resetUiTimer);
+        // --- КОНТЕКСТНОЕ МЕНЮ ДЛЯ КИКА ---
+        let targetKickId = null;
+        const ctxMenu = document.getElementById('ctx-menu');
 
-        document.getElementById('volume-slider').addEventListener('input', (e) => videoPlayer.volume = e.target.value);
-        document.getElementById('btn-fullscreen').addEventListener('click', () => {
-            const vc = document.getElementById('video-container');
-            if (!document.fullscreenElement) vc.requestFullscreen().catch(e => {});
-            else document.exitFullscreen();
+        chatMessages.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); 
+            if (!isAdmin) return; 
+
+            const msgBlock = e.target.closest('.chat-msg-block');
+            if (!msgBlock) return;
+
+            const id = msgBlock.dataset.id;
+            const user = msgBlock.dataset.user;
+            
+            if (id === socket.id || user === myName) return; 
+
+            targetKickId = id;
+            
+            ctxMenu.style.top = `${e.clientY}px`;
+            ctxMenu.style.left = `${e.clientX}px`;
+            ctxMenu.classList.remove('hidden');
         });
+
+        document.addEventListener('click', () => {
+            ctxMenu.classList.add('hidden');
+        });
+
+        document.getElementById('btn-kick').addEventListener('click', () => {
+            if (targetKickId) {
+                socket.emit('kick-user', targetKickId);
+                ctxMenu.classList.add('hidden');
+            }
+        });
+
     </script>
 </body>
 </html>
