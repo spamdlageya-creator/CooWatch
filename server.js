@@ -1,129 +1,71 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
-const path = require('path');
+const server = http.createServer(app);
+const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-const rooms = new Map();
-
-function broadcastLobbies() {
-    const lobbies = [];
-    rooms.forEach((data, name) => {
-        lobbies.push({
-            name: name,
-            hasPassword: !!data.password,
-            viewers: data.viewers.size
-        });
-    });
-    io.emit('update-lobbies', lobbies);
-}
+const activeRooms = {}; 
+const userSockets = {}; 
 
 io.on('connection', (socket) => {
-    socket.emit('update-lobbies', Array.from(rooms.entries()).map(([name, data]) => ({
-        name, hasPassword: !!data.password, viewers: data.viewers.size
-    })));
-
-    socket.on('create-room', (roomName, password) => {
-        if (rooms.has(roomName)) {
-            socket.emit('error-msg', 'Лобби с таким именем уже существует.');
-            return;
-        }
-        
-        socket.join(roomName);
-        socket.roomName = roomName;
-        socket.userName = roomName;
-        socket.isAdmin = true;
-
-        rooms.set(roomName, {
-            password: password || null,
-            creatorId: socket.id,
-            viewers: new Set([socket.id]),
-            reactions: {}
-        });
-
+    socket.on('create-room', (adminName) => {
+        if (activeRooms[adminName]) return socket.emit('error-msg', 'Комната с таким ником уже существует!');
+        activeRooms[adminName] = { adminId: socket.id, users: {} };
+        userSockets[socket.id] = { room: adminName, nick: adminName };
+        socket.join(adminName);
         socket.emit('room-ready', true);
-        broadcastLobbies();
     });
 
-    socket.on('join-room', (roomName, userName, password) => {
-        const room = rooms.get(roomName);
-        if (!room) {
-            socket.emit('error-msg', 'Такого лобби не существует.');
-            return;
-        }
-        
-        if (room.password && room.password !== password) {
-            socket.emit('error-msg', 'Неверный пароль!');
-            return;
-        }
+    socket.on('join-room', (adminName, userName) => {
+        if (!activeRooms[adminName]) return socket.emit('error-msg', 'Такой трансляции не существует!');
+        if (Object.values(activeRooms[adminName].users).includes(userName)) return socket.emit('error-msg', 'Этот ник уже занят в чате!');
 
-        socket.join(roomName);
-        socket.roomName = roomName;
-        socket.userName = userName;
-        socket.isAdmin = false;
-
-        room.viewers.add(socket.id);
-        
+        activeRooms[adminName].users[socket.id] = userName;
+        userSockets[socket.id] = { room: adminName, nick: userName };
+        socket.join(adminName);
         socket.emit('room-ready', false);
-        socket.to(room.creatorId).emit('user-joined', socket.id, userName);
-        broadcastLobbies();
+        socket.to(adminName).emit('user-joined', socket.id, userName);
     });
 
-    socket.on('chat-message', (roomName, user, text) => {
-        const msgId = Math.random().toString(36).substr(2, 9);
-        io.to(roomName).emit('chat-message', { msgId, user, text });
-    });
-
-    socket.on('add-reaction', (roomName, msgId, emoji) => {
-        const room = rooms.get(roomName);
-        if (room) {
-            if (!room.reactions[msgId]) room.reactions[msgId] = {};
-            if (!room.reactions[msgId][emoji]) room.reactions[msgId][emoji] = 0;
-            
-            room.reactions[msgId][emoji]++;
-            io.to(roomName).emit('update-reactions', msgId, emoji, room.reactions[msgId][emoji]);
-        }
-    });
-
-    socket.on('signal', (toId, signalData) => {
-        io.to(toId).emit('signal', socket.id, signalData);
-    });
-
-    socket.on('stop-stream-notice', (roomName) => {
-        socket.to(roomName).emit('stream-cleared');
-    });
-
+    // Логика кика
     socket.on('kick-user', (targetId) => {
-        if (socket.isAdmin) {
-            io.to(targetId).emit('kicked-notice');
-            io.sockets.sockets.get(targetId)?.disconnect();
+        const info = userSockets[socket.id];
+        if (info && activeRooms[info.room] && activeRooms[info.room].adminId === socket.id) {
+            io.to(targetId).emit('kicked-notice'); 
+            const targetSocket = io.sockets.sockets.get(targetId);
+            if (targetSocket) targetSocket.leave(info.room);
         }
+    });
+
+    socket.on('signal', (toId, signalData) => io.to(toId).emit('signal', socket.id, signalData));
+    
+    socket.on('stop-stream-notice', (room) => {
+        socket.to(room).emit('stream-cleared');
+    });
+
+    // Изменили отправку сообщения, чтобы передавать ID для кика
+    socket.on('chat-message', (room, userName, message) => {
+        io.to(room).emit('chat-message', { id: socket.id, user: userName, text: message });
     });
 
     socket.on('disconnect', () => {
-        if (socket.roomName) {
-            const room = rooms.get(socket.roomName);
-            if (room) {
-                room.viewers.delete(socket.id);
-                if (socket.isAdmin) {
-                    socket.to(socket.roomName).emit('error-msg', 'Админ завершил трансляцию и удалил лобби.');
-                    rooms.delete(socket.roomName);
-                } else {
-                    socket.to(room.creatorId).emit('user-left', socket.userName);
+        const info = userSockets[socket.id];
+        if (info) {
+            if (activeRooms[info.room]) {
+                delete activeRooms[info.room].users[socket.id];
+                socket.to(info.room).emit('user-left', info.nick);
+                if (activeRooms[info.room].adminId === socket.id) {
+                    delete activeRooms[info.room];
+                    socket.to(info.room).emit('error-msg', 'Админ завершил трансляцию (отключился).');
                 }
-                broadcastLobbies();
             }
+            delete userSockets[socket.id];
         }
     });
 });
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+server.listen(3000, () => console.log('Сервер запущен на порту 3000'));
