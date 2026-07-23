@@ -10,7 +10,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Хранилище комнат: name -> { password, creatorId, viewers: Set, reactions: {} }
 const rooms = new Map();
 
 function broadcastLobbies() {
@@ -26,27 +25,26 @@ function broadcastLobbies() {
 }
 
 io.on('connection', (socket) => {
-    // Отправляем список лобби при подключении
     socket.emit('update-lobbies', Array.from(rooms.entries()).map(([name, data]) => ({
         name, hasPassword: !!data.password, viewers: data.viewers.size
     })));
 
     socket.on('create-room', (roomName, password) => {
         if (rooms.has(roomName)) {
-            socket.emit('error-msg', 'Лобби с таким именем (вашим ником) уже существует.');
+            socket.emit('error-msg', 'Лобби с таким именем уже существует.');
             return;
         }
         
         socket.join(roomName);
         socket.roomName = roomName;
-        socket.userName = roomName; // Имя создателя
+        socket.userName = roomName;
         socket.isAdmin = true;
 
         rooms.set(roomName, {
             password: password || null,
             creatorId: socket.id,
             viewers: new Set([socket.id]),
-            reactions: {} // msgId -> { emoji: count }
+            reactions: {}
         });
 
         socket.emit('room-ready', true);
@@ -77,9 +75,8 @@ io.on('connection', (socket) => {
         broadcastLobbies();
     });
 
-    // --- Чат и Реакции ---
     socket.on('chat-message', (roomName, user, text) => {
-        const msgId = Math.random().toString(36).substr(2, 9); // Уникальный ID для реакций
+        const msgId = Math.random().toString(36).substr(2, 9);
         io.to(roomName).emit('chat-message', { msgId, user, text });
     });
 
@@ -94,7 +91,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- WebRTC Сигналы ---
     socket.on('signal', (toId, signalData) => {
         io.to(toId).emit('signal', socket.id, signalData);
     });
@@ -115,9 +111,7 @@ io.on('connection', (socket) => {
             const room = rooms.get(socket.roomName);
             if (room) {
                 room.viewers.delete(socket.id);
-                
                 if (socket.isAdmin) {
-                    // Если админ ушел, удаляем комнату
                     socket.to(socket.roomName).emit('error-msg', 'Админ завершил трансляцию и удалил лобби.');
                     rooms.delete(socket.roomName);
                 } else {
